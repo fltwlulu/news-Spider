@@ -1,5 +1,5 @@
 const express = require('express');
-const	cheerio = require('cheerio');
+const cheerio = require('cheerio');
 const superagent= require('superagent');
 const Nightmare = require('nightmare');          // 处理动态页面
 const nightmare = Nightmare({ show: true });
