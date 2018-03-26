@@ -3,7 +3,7 @@ const cheerio = require('cheerio');
 const superagent= require('superagent');
 const Nightmare = require('nightmare');          // 处理动态页面
 const nightmare = Nightmare({ show: true });
-const	app = express();
+const app = express();
 
 
 let getHotNews = () => {
