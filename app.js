@@ -1,11 +1,15 @@
 const express = require('express');
-const	cheerio = require('cheerio');
+const cheerio = require('cheerio');
 const superagent= require('superagent');
-const Nightmare = require('nightmare');          // 处理动态页面
+const Nightmare = require('nightmare');          // 自动化测试包，处理动态页面
 const nightmare = Nightmare({ show: true });
-const	app = express();
+const app = express();
 
 
+/**
+ * [description] - 抓取热点新闻页面
+ * 获取热点新闻数据
+ */
 let getHotNews = () => {
   return new Promise((resolve, reject)  => {
     let hotArr = [];
@@ -16,36 +20,12 @@ let getHotNews = () => {
       } else {
         let $ = cheerio.load(res.text);
 
-        // 首要热点新闻
-        let $hd0 = $('div.hotnews ul li.hdline0').find('a');
-        let $hds = $("div.hotnews ul li:not('.hdline0')").find('a');
-        hotArr[0] = {
-          title: $hd0.text(),
-          href: $hd0.attr('href'),
-          item: []
-        }
-        $hds.each((idx, ele) => {
-          hotArr[0].item[idx] = {
+        $('div#pane-news ul li a').each((idx, ele) => {
+          let news = {
             title: $(ele).text(),
             href: $(ele).attr('href')
-          }
-        });
-
-        // 热点新闻
-        $('.ulist.focuslistnews').each((index, element) => {
-          let $boldNews = $(element).find('.bold-item a');
-          let $news = $(element).find('.bold-item ~ li a');
-          hotArr[index+1] = {
-            title: $boldNews.text(),
-            href: $boldNews.attr('href'),
-            item: []
           };
-          $news.each((idx, ele) => {
-            hotArr[index+1].item[idx] = {
-              title: $(ele).text(),
-              href: $(ele).attr('href')
-            }
-          });
+          hotArr.push(news)
         });
 
         resolve(hotArr);
@@ -54,14 +34,22 @@ let getHotNews = () => {
   })
 };
 
+
+/**
+ * [description] - 抓取本地新闻页面
+ * [nremark] - 百度本地新闻在访问页面后加载js定位IP位置后获取对应新闻，
+ * 所以抓取本地新闻需要使用 nightmare 一类的自动化测试工具，
+ * 模拟浏览器环境访问页面，使js运行，生成动态页面再抓取
+ */
 let getLocalNews = () => {
   return new Promise((resolve, reject) => {
-    // 抓取本地新闻
+    // 抓取本地新闻页面
     nightmare
     .goto('http://news.baidu.com/')
     .wait("div#local_news")
     .evaluate(() => document.querySelector("div#local_news").innerHTML)
     .then(local_news => {
+      // 获取本地新闻数据
       analysisData(local_news, resolve)
     })
     .catch(error => {
@@ -71,40 +59,20 @@ let getLocalNews = () => {
   })
 };
 
-app.get('/', async (req, res, next) => {
-  try {
-    let hotArr = await getHotNews();
-    let localArr = await getLocalNews();
-    res.send({
-      hotNews: hotArr.slice(0, hotArr.length - 1),
-      localNews: localArr.slice(0, hotArr.length - 1)
-    });
-  } catch(err) {
-    console.log(err);
-    res.send(err)
-  }
-});
-
-
+/**
+ * [description]- 获取本地新闻数据
+ */
 let analysisData = (local_news, resolve) => {
   let localArr = [];
   let $ = cheerio.load(local_news);
 
   // 本地新闻
-  $('ul#localnews-focus').each((index, element) => {
-    let $boldNews = $(element).find('.bold-item a');
-    let $news = $(element).find('.bold-item ~ li a');
-    localArr[index] = {
-      title: $boldNews.text(),
-      href: $boldNews.attr('href'),
-      item: []
+  $('ul#localnews-focus li a').each((idx, ele) => {
+    let news = {
+      title: $(ele).text(),
+      href: $(ele).attr('href'),
     };
-    $news.each((idx, ele) => {
-      localArr[index].item[idx] = {
-        title: $(ele).text(),
-        href: $(ele).attr('href')
-      }
-    });
+    localArr.push(news)
   });
 
   // 本地资讯
@@ -118,6 +86,24 @@ let analysisData = (local_news, resolve) => {
 
   resolve(localArr)
 }
+
+
+/**
+ * [description] - 接口路由
+ */
+app.get('/', async (req, res, next) => {
+  try {
+    let hotArr = await getHotNews();
+    let localArr = await getLocalNews();
+    res.send({
+      hotNews: hotArr,
+      localNews: localArr
+    });
+  } catch(err) {
+    console.log(err);
+    res.send(err)
+  }
+});
 
 
 let server = app.listen(33000, function () {
